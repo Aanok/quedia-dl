@@ -1,0 +1,144 @@
+#!/bin/bash
+
+
+########## HELPER FUNCTIONS ###########
+usage() {
+	echo 'quedia
+	help
+	login
+	search <str>
+	eps <series_id>
+	dl <ep_id>'
+}
+
+
+missing_arg_error() {
+	echo "Error: \""$1"\" requires a non-empty option argument." >&2 && exit 1
+}
+
+
+cookiejar_assert_ok() {
+	[[ ! -r "${cookiejar}" ]] && { echo "Error: cookiejar ${cookiejar} does not exist or cannot be read by current user." >&2; exit 1; }
+}
+
+
+json_status_assert_ok() {
+	[[ "$(jq '.status == "error"' <<< "$1")" == 'true' ]] && { echo 'Error. Your session probably expired. Try logging in again.' >&2; exit 1; }
+}
+
+
+http_status_assert_ok() {
+	local status="$(sed -n '1s/HTTP\/1.1 \(...\).*/\1/p' <<< "$1")"
+	case "${status}" in
+		"404")
+			echo "Error: file not found. Please check ID is correct." >&2
+			exit 1
+			;;
+		"403")
+			echo "Error: unauthorized. Your session probably expired. Try logging in again." >&2
+			exit 1
+			;;
+		"302")
+			# success
+			;;
+		*)
+			echo "Error: ${status}." >&2
+			exit 1
+			;;
+	esac
+}
+
+
+quedia_request() {
+	if [[ -n "$2" ]]; then
+		curl -s -H "Accept: application/json" -H "Content-Type: application/json" -b "${cookiejar}" --data-raw "$2" "https://quedia.tv/api/$1"
+	else
+		curl -s -H "Accept: application/json" -H "Content-Type: application/json" -b "${cookiejar}" "https://quedia.tv/api/$1"
+	fi
+}
+
+
+url_decode() {
+	printf '%b' "${1//%/\\x}"
+}
+#######################################
+
+# check dependencies
+command -v jq >/dev/null || { echo "Error: program jq not found." >&2; exit 1; }
+command -v curl >/dev/null || { echo "Error: program curl not found." >&2; exit 1; }
+
+# check argcount
+[[ "$#" -lt 1 ]] && { usage; exit 1; }
+
+
+# load configuration files
+user_config_prefix="${XDG_CONFIG_HOME:-${HOME}/.config}"
+mkdir -p "${user_config_prefix}/quedia"
+cookiejar="${user_config_prefix}/quedia/cookiejar"
+
+
+while [[ -n "$1" ]]; do
+	case "$1" in
+		'help')
+			usage
+			exit
+			;;
+		'login')
+			read -p "Username: " -r username
+			read -p "Password: " -s -r password
+			echo
+			login_payload="$(jq -n -aRc --arg username "${username}" --arg "password" "${password}" '{username: $username, password: $password}')"
+			if [[ "$(curl -s -H "Accept: application/json" -H "Content-Type: application/json" -X POST --data-raw "${login_payload}" -c "${cookiejar}" 'https://quedia.tv/api/profile/login' | jq '.status == "ok"')" == 'true' ]]; then
+				echo 'Login successful.'
+			else
+				echo 'Error. Please double check your credentials.'
+				rm -f "${cookiejar}"
+				exit 1
+			fi
+			;;
+		'search')
+			if [[ -n "$2" ]]; then
+				cookiejar_assert_ok
+				search_payload="$(jq -n -aRc --arg str "$2" '{search: $str}')"
+				json_reply="$(quedia_request "media/get_series" "${search_payload}")"
+				json_status_assert_ok "${json_reply}"
+				jq -r '.response[] as $items | ($items.name + " (ID " + ($items.id | tostring) + "): " + $items.description + "\n")' <<< "${json_reply}"
+			else
+				missing_arg_error 'search'
+			fi
+			shift
+			;;
+		'eps')
+			if [[ -n "$2" ]]; then
+				cookiejar_assert_ok
+				json_reply="$(quedia_request "media/get_series" "{\"id\":$2,\"depth\":3}")"
+				json_status_assert_ok
+				jq -r '.response[].seasons[].episodes[].signatures[] as $items | ($items.uid + " " + $items.filename)' <<< "${json_reply}"
+			else
+				missing_arg_error 'eps'
+			fi
+			shift
+			;;
+		'dl')
+			[[ ! -n "$2" ]] && missing_arg_error 'dl'
+			while [[ -n "$2" ]]; do
+				cookiejar_assert_ok
+				reply="$(curl -si -b "${cookiejar}" "https://quedia.tv/api/storage/get_download_link/$2")"
+				http_status_assert_ok "${reply}"
+				url="https://quedia.tv$(sed -n 's/Location: \(.*\)/\1/p' <<< "${reply}")"
+				url="${url%$'\r'}"
+				filename="$(url_decode "${url##*/}")"
+				echo "Downloading ${filename}"
+				curl -o "${filename}" -b "${cookiejar}" "${url}"
+				shift
+			done
+			;;
+		*)
+			usage
+			exit 1
+			;;
+	esac
+	shift
+done
+
+exit 0
