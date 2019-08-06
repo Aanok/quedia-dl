@@ -73,8 +73,8 @@ command -v curl >/dev/null || { echo "Error: program curl not found." >&2; exit 
 
 # load configuration files
 user_config_prefix="${XDG_CONFIG_HOME:-${HOME}/.config}"
-mkdir -p "${user_config_prefix}/quedia"
-cookiejar="${user_config_prefix}/quedia/cookiejar"
+mkdir -p "${user_config_prefix}/quedia-dl"
+cookiejar="${user_config_prefix}/quedia-dl/cookiejar"
 
 
 while [[ -n "$1" ]]; do
