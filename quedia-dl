@@ -3,12 +3,12 @@
 
 ########## HELPER FUNCTIONS ###########
 usage() {
-	echo 'quedia
+	echo 'quedia-dl
 	help
 	login
 	search <str>
 	eps <series_id>
-	dl <ep_id>'
+	dl <ep_id>+'
 }
 
 
@@ -18,7 +18,7 @@ missing_arg_error() {
 
 
 cookiejar_assert_ok() {
-	[[ ! -r "${cookiejar}" ]] && { echo "Error: cookiejar ${cookiejar} does not exist or cannot be read by current user." >&2; exit 1; }
+	[[ ! -r "${cookiejar}" ]] && { echo "Error: cookiejar ${cookiejar} does not exist or cannot be read by current user. This is expected if you have never logged in." >&2; exit 1; }
 }
 
 
