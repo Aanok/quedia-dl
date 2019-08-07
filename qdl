@@ -9,8 +9,9 @@ usage() {
   login
   latest [n]
   search <str>
-  eps <series_id>
-  [-d <outputdir>] <ep_id>+'
+  list <series_id>
+  all [-d <outputdir>] <series_id>
+  [-d <outputdir>] <episode_id>+'
 }
 
 
@@ -75,6 +76,24 @@ url_decode() {
 jq_print_get_series() {
 	jq -r '.response[] as $items | ("> " + ($items.id | tostring) + " " + $items.name + ": " + $items.description)' <<< "$1"
 }
+
+
+# usage: dl_episode id outputdir
+dl_episode() {
+	cookiejar_assert_ok
+	local reply="$(curl -si -b "${cookiejar}" "https://quedia.tv/api/storage/get_download_link/$1")"
+	http_status_assert_ok "${reply}"
+	local url="https://quedia.tv$(sed -n 's/Location: \(.*\)/\1/p' <<< "${reply}")"
+	url="${url%$'\r'}"
+	local filename="$(url_decode "${url##*/}")"
+	local destination="${2}/${filename}"
+	echo "Downloading ${destination}"
+	if [[ -e "${destination}" ]]; then
+		echo $'\tDestination already exists on filesystem, skipping.'
+	else
+		curl -o "${destination}" -b "${cookiejar}" "${url}"
+	fi
+}
 #######################################
 
 
@@ -120,50 +139,50 @@ while [[ -n "$1" ]]; do
 			jq_print_get_series "${json_reply}"
 			;;
 		search)
-			if [[ -n "$2" ]]; then
-				cookiejar_assert_ok
-				search_payload="$(jq -n -aRc --arg str "$2" '{search: $str}')"
-				json_reply="$(quedia_request "media/get_series" "${search_payload}")"
-				json_status_assert_ok "${json_reply}"
-				jq_print_get_series "${json_reply}"
-				shift
-			else
-				missing_arg_error 'search'
-			fi
+			[[ -z "$2" ]] && missing_arg_error 'search'
+			cookiejar_assert_ok
+			search_payload="$(jq -n -aRc --arg str "$2" '{search: $str}')"
+			json_reply="$(quedia_request "media/get_series" "${search_payload}")"
+			json_status_assert_ok "${json_reply}"
+			jq_print_get_series "${json_reply}"
+			shift
 			;;
-		eps)
-			if [[ -n "$2" ]]; then
-				cookiejar_assert_ok
-				number_assert_ok "$2"
-				json_reply="$(quedia_request "media/get_series" "{\"id\":$2,\"depth\":3}")"
-				json_status_assert_ok
-				jq -r '.response[].seasons[].episodes[].signatures[] as $items | ($items.uid + " " + $items.filename)' <<< "${json_reply}"
-				shift
-			else
-				missing_arg_error 'eps'
+		list)
+			[[ -z "$2" ]] && missing_arg_error 'list'
+			cookiejar_assert_ok
+			number_assert_ok "$2"
+			json_reply="$(quedia_request "media/get_series" "{\"id\":${2},\"depth\":3}")"
+			json_status_assert_ok
+			jq -r '.response[].seasons[].episodes[].signatures[] as $items | ($items.uid + " " + $items.filename)' <<< "${json_reply}"
+			shift
+			;;
+		all)
+			outputdir='.'
+			if [[ "$2" == '-d' ]]; then
+				[[ -z "$3" ]] && missing_arg_error '-d'
+				outputdir="$3"
+				shift; shift
 			fi
+			[[ -z "$2" ]] && missing_arg_error 'all'
+			cookiejar_assert_ok
+			number_assert_ok "$2"
+			json_reply="$(quedia_request "media/get_series" "{\"id\":${2},\"depth\":3}")"
+			json_status_assert_ok
+			for id in $(jq -r '.response[].seasons[].episodes[].signatures[] as $items | $items.uid' <<< "${json_reply}"); do
+				dl_episode "${id}" "${outputdir}"
+			done
+			shift
 			;;
 		*)
 			outputdir='.'
 			if [[ "$2" == '-d' ]]; then
-				[[ ! -n "$3" ]] && missing_arg_error '-d'
+				[[ -z "$3" ]] && missing_arg_error '-d'
 				outputdir="$3"
 				shift; shift
 			fi
-			[[ ! -n "$2" ]] && { usage; exit 1; }
-			cookiejar_assert_ok
+			[[ -z "$2" ]] && { usage; exit 1; }
 			while [[ -n "$2" ]]; do
-				reply="$(curl -si -b "${cookiejar}" "https://quedia.tv/api/storage/get_download_link/$2")"
-				http_status_assert_ok "${reply}"
-				url="https://quedia.tv$(sed -n 's/Location: \(.*\)/\1/p' <<< "${reply}")"
-				url="${url%$'\r'}"
-				filename="$(url_decode "${url##*/}")"
-				echo "Downloading ${outputdir}/${filename}"
-				if [[ -e "${outputdir}/${filename}" ]]; then
-					echo $'\tDestination already exists on filesystem, skipping.'
-				else
-					curl -o "${outputdir}/${filename}" -b "${cookiejar}" "${url}"
-				fi
+				dl_episode "$2" "${outputdir}"
 				shift
 			done
 			;;
