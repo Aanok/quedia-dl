@@ -103,7 +103,7 @@ while [[ -n "$1" ]]; do
 			echo
 			login_payload="$(jq -n -aRc --arg username "${username}" --arg "password" "${password}" '{username: $username, password: $password}')"
 			if [[ "$(curl -s -H "Accept: application/json" -H "Content-Type: application/json" --data-raw "${login_payload}" -c "${cookiejar}" 'https://quedia.tv/api/profile/login' | jq '.status == "ok"')" == 'true' ]]; then
-				chmod 800 "${cookiejar}"
+				chmod 600 "${cookiejar}"
 				echo 'Login successful.' >&2
 			else
 				echo 'Error. Please double check your credentials.' >&2
