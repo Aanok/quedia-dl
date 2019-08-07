@@ -159,7 +159,11 @@ while [[ -n "$1" ]]; do
 				url="${url%$'\r'}"
 				filename="$(url_decode "${url##*/}")"
 				echo "Downloading ${outputdir}/${filename}"
- 				curl -o "${outputdir}/${filename}" -b "${cookiejar}" "${url}"
+				if [[ -e "${outputdir}/${filename}" ]]; then
+					echo $'\tDestination already exists on filesystem, skipping.'
+				else
+					curl -o "${outputdir}/${filename}" -b "${cookiejar}" "${url}"
+				fi
 				shift
 			done
 			;;
