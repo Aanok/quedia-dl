@@ -10,7 +10,7 @@ usage() {
 	latest [n]
 	search <str>
 	eps <series_id>
-	dl <ep_id>+'
+	dl [-d <outputdir>] <ep_id>+'
 }
 
 
@@ -137,7 +137,6 @@ while [[ -n "$1" ]]; do
 				number_assert_ok "$2"
 				json_reply="$(quedia_request "media/get_series" "{\"id\":$2,\"depth\":3}")"
 				json_status_assert_ok
-				echo "${json_reply}"
 				jq -r '.response[].seasons[].episodes[].signatures[] as $items | ($items.uid + " " + $items.filename)' <<< "${json_reply}"
 				shift
 			else
@@ -145,16 +144,22 @@ while [[ -n "$1" ]]; do
 			fi
 			;;
 		'dl')
+			outputdir='.'
+			if [[ "$2" == '-d' ]]; then
+				[[ ! -n "$3" ]] && missing_arg_error '-d'
+				outputdir="$3"
+				shift; shift
+			fi
 			[[ ! -n "$2" ]] && missing_arg_error 'dl'
+			cookiejar_assert_ok
 			while [[ -n "$2" ]]; do
-				cookiejar_assert_ok
 				reply="$(curl -si -b "${cookiejar}" "https://quedia.tv/api/storage/get_download_link/$2")"
 				http_status_assert_ok "${reply}"
 				url="https://quedia.tv$(sed -n 's/Location: \(.*\)/\1/p' <<< "${reply}")"
 				url="${url%$'\r'}"
 				filename="$(url_decode "${url##*/}")"
-				echo "Downloading ${filename}"
-				curl -o "${filename}" -b "${cookiejar}" "${url}"
+				echo "Downloading ${outputdir}/${filename}"
+ 				curl -o "${outputdir}/${filename}" -b "${cookiejar}" "${url}"
 				shift
 			done
 			;;
