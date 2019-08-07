@@ -4,7 +4,7 @@
 
 ########## HELPER FUNCTIONS ###########
 usage() {
-	echo 'quedia-dl
+	echo 'qdl
 	help
 	login
 	latest [n]
@@ -77,6 +77,7 @@ jq_print_get_series() {
 }
 #######################################
 
+
 # check dependencies
 command -v jq >/dev/null || { echo "Error: program jq not found." >&2; exit 1; }
 command -v curl >/dev/null || { echo "Error: program curl not found." >&2; exit 1; }
@@ -84,11 +85,10 @@ command -v curl >/dev/null || { echo "Error: program curl not found." >&2; exit 
 # check argcount
 [[ "$#" -lt 1 ]] && { usage; exit 1; }
 
-
-# load configuration files
-user_config_prefix="${XDG_CONFIG_HOME:-${HOME}/.config}"
-mkdir -p "${user_config_prefix}/quedia-dl"
-cookiejar="${user_config_prefix}/quedia-dl/cookiejar"
+# cookiejar path
+user_data_prefix="${XDG_DATA_HOME:-${HOME}/.local/share}"
+mkdir -p "${user_data_prefix}/quedia-dl"
+cookiejar="${user_data_prefix}/quedia-dl/cookiejar"
 
 
 while [[ -n "$1" ]]; do
