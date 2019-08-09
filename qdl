@@ -1,22 +1,27 @@
 #!/bin/bash
 # Basic interface to https://quedia.tv
 
+VERSION='1.0'
+version_regex='[[:digit:]]+\.[[:digit:]]+'
+
 
 ########## HELPER FUNCTIONS ###########
 usage() {
-	echo 'qdl
+	echo "qdl v${VERSION}
   -h | --help | help
+  update
   login
   latest [n]
   search <str>
   list <series_id>
   all [-d <outputdir>] <series_id>
-  [-d <outputdir>] <episode_id>+'
+  [-d <outputdir>] <episode_id>+"
 }
 
 
 missing_arg_error() {
-	echo "Error: \""$1"\" requires a non-empty option argument." >&2 && exit 1
+	echo "Error: \""$1"\" requires a non-empty option argument." >&2
+	exit 1
 }
 
 
@@ -115,6 +120,20 @@ while [[ -n "$1" ]]; do
 		-h|--help|help)
 			usage
 			exit 0
+			;;
+		update)
+			echo "Local v${VERSION}."
+			remote_version="$(curl -s 'https://raw.githubusercontent.com/Aanok/quedia-dl/master/version')" || { echo 'ERROR: network error.' >&2; exit 1; }
+			[[ "${remote_version}" =~ $version_regex ]] || { echo "ERROR: ${remote_version}." >&2; exit 1; }
+			[[ "${remote_version}" == "${VERSION}" ]] && { echo 'Up-to-date.'; exit 0; }
+			echo "Found remote v${remote_version}."
+			if curl -o "$(readlink -f "$0")" 'https://raw.githubusercontent.com/Aanok/quedia-dl/master/qdl'; then
+				echo 'Updated successfully.'
+				exit 0
+			else
+				echo 'ERROR: could not update script.'
+				exit 1
+			fi
 			;;
 		login)
 			read -p "Username: " -r username
