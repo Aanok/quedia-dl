@@ -175,14 +175,14 @@ while [[ -n "$1" ]]; do
 			;;
 		*)
 			outputdir='.'
-			if [[ "$2" == '-d' ]]; then
-				[[ -z "$3" ]] && missing_arg_error '-d'
-				outputdir="$3"
+			if [[ "$1" == '-d' ]]; then
+				[[ -z "$2" ]] && missing_arg_error '-d'
+				outputdir="$2"
 				shift; shift
 			fi
-			[[ -z "$2" ]] && { usage; exit 1; }
-			while [[ -n "$2" ]]; do
-				dl_episode "$2" "${outputdir}"
+			[[ -z "$1" ]] && { usage; exit 1; }
+			while [[ -n "$1" ]]; do
+				dl_episode "$1" "${outputdir}"
 				shift
 			done
 			;;
