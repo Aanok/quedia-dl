@@ -143,7 +143,6 @@ while [[ -n "$1" ]]; do
 			shift
 			cookiejar_assert_ok
 			search_payload="$(jq -n -aRc --arg str "$(echo "$@")" '{search: $str}')"
-			echo "${search_payload}"
 			json_reply="$(quedia_request "media/get_series" "${search_payload}")"
 			json_status_assert_ok "${json_reply}"
 			jq_print_get_series "${json_reply}"
