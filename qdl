@@ -169,12 +169,15 @@ while [[ -n "$1" ]]; do
 			;;
 		list)
 			[[ -z "$2" ]] && missing_arg_error 'list'
-			cookiejar_assert_ok
-			number_assert_ok "$2"
-			json_reply="$(quedia_request "media/get_series" "{\"id\":${2},\"depth\":3}")"
-			json_status_assert_ok
-			jq -r '.response[].seasons[].episodes[].signatures[] as $items | ($items.uid + " " + $items.filename)' <<< "${json_reply}"
-			shift
+            shift
+            while [[ -n "$1" ]]; do
+                cookiejar_assert_ok
+                number_assert_ok "$1"
+                json_reply="$(quedia_request "media/get_series" "{\"id\":${1},\"depth\":3}")"
+                json_status_assert_ok
+                jq -r '.response[].seasons[].episodes[].signatures[] as $items | ($items.uid + " " + $items.filename)' <<< "${json_reply}"
+                shift
+            done
 			;;
 		all)
 			outputdir='.'
