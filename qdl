@@ -165,6 +165,7 @@ while [[ -n "$1" ]]; do
 			json_reply="$(quedia_request "media/get_series" "${search_payload}")"
 			json_status_assert_ok "${json_reply}"
 			jq_print_get_series "${json_reply}"
+            shift "$#"
 			;;
 		list)
 			[[ -z "$2" ]] && missing_arg_error 'list'
