@@ -13,7 +13,7 @@ usage() {
   login
   latest [n]
   search <str>
-  list <series_id>
+  list <series_id>+
   all [-d <outputdir>] <series_id>
   [-d <outputdir>] <episode_id>+"
 }
@@ -180,21 +180,24 @@ while [[ -n "$1" ]]; do
             done
 			;;
 		all)
+            shift
 			outputdir='.'
-			if [[ "$2" == '-d' ]]; then
-				[[ -z "$3" ]] && missing_arg_error '-d'
-				outputdir="$3"
-				shift; shift
+			if [[ "$1" == '-d' ]]; then
+				[[ -z "$2" ]] && missing_arg_error '-d'
+				outputdir="$2"
+				shift 2
 			fi
-			[[ -z "$2" ]] && missing_arg_error 'all'
-			cookiejar_assert_ok
-			number_assert_ok "$2"
-			json_reply="$(quedia_request "media/get_series" "{\"id\":${2},\"depth\":3}")"
-			json_status_assert_ok
-			for id in $(jq -r '.response[].seasons[].episodes[].signatures[] as $items | $items.uid' <<< "${json_reply}"); do
-				dl_episode "${id}" "${outputdir}"
-			done
-			shift
+			[[ -z "$1" ]] && missing_arg_error 'all'
+            while [[ -n "$1" ]]; do
+                cookiejar_assert_ok
+                number_assert_ok "$1"
+                json_reply="$(quedia_request "media/get_series" "{\"id\":${1},\"depth\":3}")"
+                json_status_assert_ok
+                for id in $(jq -r '.response[].seasons[].episodes[].signatures[] as $items | $items.uid' <<< "${json_reply}"); do
+                    dl_episode "${id}" "${outputdir}"
+                done
+                shift
+            done
 			;;
 		*)
 			outputdir='.'
