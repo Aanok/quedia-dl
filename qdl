@@ -143,6 +143,7 @@ while [[ -n "$1" ]]; do
 			if [[ "$(curl -s -H "Accept: application/json" -H "Content-Type: application/json" --data-raw "${login_payload}" -c "${cookiejar}" 'https://quedia.tv/api/profile/login' | jq '.status == "ok"')" == 'true' ]]; then
 				chmod 600 "${cookiejar}"
 				echo 'Login successful.' >&2
+                exit 0
 			else
 				echo 'Error. Please double check your credentials.' >&2
 				rm -f "${cookiejar}"
@@ -150,16 +151,17 @@ while [[ -n "$1" ]]; do
 			fi
 			;;
 		latest)
+            shift
 			cookiejar_assert_ok
 			latest_payload='{"limit":0}'
-			[[ -n "$2" ]] && { number_assert_ok "$2"; latest_payload="{\"limit\":$2}"; shift; }
+			[[ -n "$1" ]] && { number_assert_ok "$1"; latest_payload="{\"limit\":$1}"; shift; }
 			json_reply="$(quedia_request "media/get_series" "${latest_payload}")"
 			json_status_assert_ok "${json_reply}"
 			jq_print_get_series "${json_reply}"
 			;;
 		search)
-			[[ -z "$2" ]] && missing_arg_error 'search'
 			shift
+			[[ -z "$1" ]] && missing_arg_error 'search'
 			cookiejar_assert_ok
 			search_payload="$(jq -n -aRc --arg str "$(echo "$@")" '{search: $str}')"
 			json_reply="$(quedia_request "media/get_series" "${search_payload}")"
@@ -168,8 +170,8 @@ while [[ -n "$1" ]]; do
             shift "$#"
 			;;
 		list)
-			[[ -z "$2" ]] && missing_arg_error 'list'
             shift
+			[[ -z "$1" ]] && missing_arg_error 'list'
             while [[ -n "$1" ]]; do
                 cookiejar_assert_ok
                 number_assert_ok "$1"
