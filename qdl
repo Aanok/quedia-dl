@@ -14,7 +14,7 @@ usage() {
   latest [n]
   search <str>
   list <series_id>+
-  all [-d <outputdir>] <series_id>
+  all [-d <outputdir>] <series_id>+
   urls [-f <outputfile>] <series_id>
   [-d <outputdir>] <episode_id>+"
 }
