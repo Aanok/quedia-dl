@@ -15,6 +15,7 @@ usage() {
   search <str>
   list <series_id>+
   all [-d <outputdir>] <series_id>
+  urls [-f <outputfile>] <series_id>
   [-d <outputdir>] <episode_id>+"
 }
 
@@ -98,6 +99,18 @@ dl_episode() {
     else
         curl -o "${destination}" -b "${cookiejar}" "${url}"
     fi
+}
+
+# usage: get_episode_url id outputfile
+get_episode_url() {
+    cookiejar_assert_ok
+    local reply="$(curl -si -b "${cookiejar}" "https://quedia.tv/api/storage/get_download_link/$1")"
+    http_status_assert_ok "${reply}"
+    local url="https://quedia.tv$(sed -n 's/Location: \(.*\)/\1/p' <<< "${reply}")"
+    url="${url%$'\r'}"
+    local filename="$(url_decode "${url##*/}")"
+    echo "Saving URL for ${filename}"
+    echo ${url} >> ${2}
 }
 #######################################
 
@@ -197,6 +210,26 @@ while [[ -n "$1" ]]; do
                 json_status_assert_ok
                 for id in $(jq -r '.response[].seasons[].episodes[].signatures[] as $items | $items.uid' <<< "${json_reply}"); do
                     dl_episode "${id}" "${outputdir}"
+                done
+                shift
+            done
+            ;;
+        urls)
+            shift
+            outputfile='./urls.txt'
+            if [[ "$1" == '-f' ]]; then
+                [[ -z "$2" ]] && missing_arg_error '-f'
+                outputfile="$2"
+                shift 2
+            fi
+            [[ -z "$1" ]] && missing_arg_error 'urls'
+            while [[ -n "$1" ]]; do
+                cookiejar_assert_ok
+                number_assert_ok "$1"
+                json_reply="$(quedia_request "media/get_series" "{\"id\":${1},\"depth\":3}")"
+                json_status_assert_ok
+                for id in $(jq -r '.response[].seasons[].episodes[].signatures[] as $items | $items.uid' <<< "${json_reply}"); do
+                    get_episode_url "${id}" "${outputfile}"
                 done
                 shift
             done
